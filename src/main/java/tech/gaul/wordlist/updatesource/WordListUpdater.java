@@ -14,24 +14,22 @@ import java.util.List;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import software.amazon.awssdk.services.sqs.SqsClient;
 import tech.gaul.wordlist.updatesource.models.ValidateWordsMessage;
 import tech.gaul.wordlist.updatesource.models.WordListSource;
 
+@Builder
+@Getter
+@Setter
 public class WordListUpdater {
     private final WordListSource source;
     private final LambdaLogger logger;
-    private final SqsAsyncClient sqsClient;
+    private final SqsClient sqsClient;
     private final String validateWordsQueueUrl;
-    private final int batchSize;
-
-    public WordListUpdater(Builder builder) {
-        this.source = builder.source;
-        this.logger = builder.logger;
-        this.sqsClient = builder.sqsClient;
-        this.batchSize = builder.batchSize;
-        this.validateWordsQueueUrl = builder.validateWordsQueueUrl;
-    }
+    private final int batchSize;    
 
     public void update() throws IOException, InterruptedException {
         logger.log("Retrieving word list from source: " + source.getUrl());
@@ -73,46 +71,5 @@ public class WordListUpdater {
         }
 
         reader.close();
-    }
-
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder {
-        private WordListSource source;
-        private LambdaLogger logger;
-        private SqsAsyncClient sqsClient;
-        private int batchSize = 50;
-        private String validateWordsQueueUrl;
-
-        public Builder source(WordListSource source) {
-            this.source = source;
-            return this;
-        }
-
-        public Builder logger(LambdaLogger logger) {
-            this.logger = logger;
-            return this;
-        }
-
-        public Builder sqsClient(SqsAsyncClient sqsClient) {
-            this.sqsClient = sqsClient;
-            return this;
-        }
-
-        public Builder batchSize(int batchSize) {
-            this.batchSize = batchSize;
-            return this;
-        }
-
-        public Builder validateWordsQueueUrl(String validateWordsQueueUrl) {
-            this.validateWordsQueueUrl = validateWordsQueueUrl;
-            return this;
-        }
-
-        public WordListUpdater build() {
-            return new WordListUpdater(this);
-        }
     }
 }

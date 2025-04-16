@@ -1,8 +1,21 @@
 package tech.gaul.wordlist.updatesource;
 
+import java.util.Map;
+
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Key;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import tech.gaul.wordlist.updatesource.models.UpdateSourceMessage;
 import tech.gaul.wordlist.updatesource.models.WordListSource;
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
@@ -20,15 +33,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *      Java Handler</a> for more information
  */
 public class App implements RequestHandler<SQSEvent, Object> {
-    private final SqsAsyncClient sqsClient;
+    private final SqsClient sqsClient;
+    private final DynamoDbEnhancedClient dynamoDbClient;    
+    private final DynamoDbTable<WordListSource> wordListSourceTable;
 
-    public App() {
-        // Initialize the SDK client outside of the handler method so that it can be
-        // reused for subsequent invocations.
-        // It is initialized when the class is loaded.
+    public App() {        
         sqsClient = DependencyFactory.sqsClient();
-        // Consider invoking a simple api here to pre-warm up the application, eg:
-        // dynamodb#listTables
+        dynamoDbClient = DependencyFactory.dynamoDbClient();
+        wordListSourceTable = dynamoDbClient.table(
+            getWordListSourceTableName(), 
+            TableSchema.fromBean(WordListSource.class)
+        );
     }
 
     protected String getValidateWordsQueueUrl() {
@@ -37,6 +52,7 @@ public class App implements RequestHandler<SQSEvent, Object> {
 
     protected int getBatchSize() {
         String batchSizeText = System.getenv("BATCH_SIZE");
+
         if (batchSizeText != null) {
             try {
                 return Integer.parseInt(batchSizeText);
@@ -44,17 +60,32 @@ public class App implements RequestHandler<SQSEvent, Object> {
                 // Ignore and use default
             }
         }
+
         return 250;
+    }
+
+    protected String getWordListSourceTableName() {
+        return "WORD_LIST_SOURCE_TABLE_NAME";
     }
 
     @Override
     public Object handleRequest(final SQSEvent input, final Context context) {
+
+
         input.getRecords().forEach(record -> {
             String messageBody = record.getBody();
 
             ObjectMapper objectMapper = new ObjectMapper();
             try {
-                WordListSource source = objectMapper.readValue(messageBody, WordListSource.class);
+                UpdateSourceMessage sourceMessage = objectMapper.readValue(messageBody, UpdateSourceMessage.class);
+
+                WordListSource source = wordListSourceTable.getItem(Key.builder().partitionValue(sourceMessage.getName()).build());
+
+                if (source == null) {
+                    context.getLogger().log("Source not found: " + sourceMessage.getName());
+                    return;
+                }
+
                 WordListUpdater updater = WordListUpdater.builder()
                     .source(source)
                     .sqsClient(sqsClient)

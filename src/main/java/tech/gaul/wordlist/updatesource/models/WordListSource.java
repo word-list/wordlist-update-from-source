@@ -1,13 +1,19 @@
 package tech.gaul.wordlist.updatesource.models;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 
-@Builder
-@Setter
+@DynamoDbBean
 @Getter
-public class WordListSource {    
+@Setter
+public class WordListSource {
     private String name;
     private String url;
+
+    @DynamoDbPartitionKey
+    public String getName() {
+        return name;
+    }
 }

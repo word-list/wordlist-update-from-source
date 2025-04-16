@@ -3,9 +3,11 @@ package tech.gaul.wordlist.updatesource;
 
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.core.SdkSystemSetting;
-import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
  * The module containing all dependencies required by the {@link App}.
@@ -17,11 +19,23 @@ public class DependencyFactory {
     /**
      * @return an instance of SqsAsyncClient
      */
-    public static SqsAsyncClient sqsClient() {
-        return SqsAsyncClient.builder()
+    public static SqsClient sqsClient() {
+        return SqsClient.builder()
                        .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
                        .region(Region.of(System.getenv(SdkSystemSetting.AWS_REGION.environmentVariable())))
-                       .httpClientBuilder(AwsCrtAsyncHttpClient.builder())
+                       .httpClientBuilder(AwsCrtHttpClient.builder())
                        .build();
+    }
+
+    public static DynamoDbEnhancedClient dynamoDbClient() {
+        DynamoDbClient dbClient = DynamoDbClient.builder()
+                .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
+                .region(Region.of(System.getenv(SdkSystemSetting.AWS_REGION.environmentVariable())))
+                .httpClientBuilder(AwsCrtHttpClient.builder())
+                .build();
+
+        return DynamoDbEnhancedClient.builder()
+                .dynamoDbClient(dbClient)
+                .build();                
     }
 }
