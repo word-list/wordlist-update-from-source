@@ -1,0 +1,118 @@
+package tech.gaul.wordlist.updatesource;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.amazonaws.services.lambda.runtime.LambdaLogger;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import tech.gaul.wordlist.updatesource.models.ValidateWordsMessage;
+import tech.gaul.wordlist.updatesource.models.WordListSource;
+
+public class WordListUpdater {
+    private final WordListSource source;
+    private final LambdaLogger logger;
+    private final SqsAsyncClient sqsClient;
+    private final String validateWordsQueueUrl;
+    private final int batchSize;
+
+    public WordListUpdater(Builder builder) {
+        this.source = builder.source;
+        this.logger = builder.logger;
+        this.sqsClient = builder.sqsClient;
+        this.batchSize = builder.batchSize;
+        this.validateWordsQueueUrl = builder.validateWordsQueueUrl;
+    }
+
+    public void update() throws IOException, InterruptedException {
+        logger.log("Retrieving word list from source: " + source.getUrl());
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(source.getUrl()))
+                .build();
+
+        HttpResponse<InputStream> response = client.send(request, BodyHandlers.ofInputStream());
+        BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(response.body()));
+
+        String line = "";
+
+        List<String> words = new ArrayList<>();
+        long lineCount = 0;
+        while ((line = reader.readLine()) != null) {
+            line = line.trim();
+
+            if (!line.isEmpty()) {
+                words.add(line);
+                if (words.size() >= batchSize) {
+                    // Send the batch to SQS
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    ValidateWordsMessage message = ValidateWordsMessage.builder()
+                            .words(words.toArray(new String[0]))
+                            .forceUpdate(false)
+                            .build();
+                    String messageBody = objectMapper.writeValueAsString(message);
+                    sqsClient.sendMessage(m -> m.queueUrl(validateWordsQueueUrl).messageBody(messageBody));
+                    words.clear();
+                }
+            }
+
+            lineCount++;
+            if (lineCount % 5000 == 0) {
+                logger.log("Processed " + lineCount + " lines");
+            }
+        }
+
+        reader.close();
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private WordListSource source;
+        private LambdaLogger logger;
+        private SqsAsyncClient sqsClient;
+        private int batchSize = 50;
+        private String validateWordsQueueUrl;
+
+        public Builder source(WordListSource source) {
+            this.source = source;
+            return this;
+        }
+
+        public Builder logger(LambdaLogger logger) {
+            this.logger = logger;
+            return this;
+        }
+
+        public Builder sqsClient(SqsAsyncClient sqsClient) {
+            this.sqsClient = sqsClient;
+            return this;
+        }
+
+        public Builder batchSize(int batchSize) {
+            this.batchSize = batchSize;
+            return this;
+        }
+
+        public Builder validateWordsQueueUrl(String validateWordsQueueUrl) {
+            this.validateWordsQueueUrl = validateWordsQueueUrl;
+            return this;
+        }
+
+        public WordListUpdater build() {
+            return new WordListUpdater(this);
+        }
+    }
+}
