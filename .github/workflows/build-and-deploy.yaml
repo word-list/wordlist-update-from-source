@@ -1,33 +1,24 @@
 name: Build and Deploy to S3
 
-env:
-  !if: "!github.event.release.prerelease"
-    ENVIRONMENT: staging
-  !else
-    ENVIRONMENT: production
-
-run-name: Build and Deploy to S3 for ${{ github.event.repository.name }} ($ENVIRONMENT)
 on:
   release:
     types: [created]
 
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "The environment to deploy to"
-        required: true
-        default: "staging"
-        type: choice
-        options:
-          - staging
-          - production
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-24.04-arm
-    environment: $ENVIRONMENT
-
+    env:
+      if: "github.event.release.prerelease"
+      environment: staging
+      if: "!github.event.release.prerelease"
+      environment: production
     steps:
+      - name: Output setup
+        run: |
+            echo "ENVIRONMENT: ${{ github.job.environment }}"
+            echo "REPO: ${{ github.event.repository.name }}"
+            echo "RELEASE: ${{ github.event.release.tag_name }}"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
