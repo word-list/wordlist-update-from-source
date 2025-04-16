@@ -7,11 +7,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-24.04-arm
-    env:
-      if: "github.event.release.prerelease"
-      environment: staging
-      if: "!github.event.release.prerelease"
-      environment: production
+    environment: ${{ github.event.release.prerelease && 'staging' || 'production' }}
     steps:
       - name: Output setup
         run: |
