@@ -31,6 +31,22 @@ public class App implements RequestHandler<SQSEvent, Object> {
         // dynamodb#listTables
     }
 
+    protected String getValidateWordsQueueUrl() {
+        return System.getenv("VALIDATE_WORDS_QUEUE_URL");
+    }
+
+    protected int getBatchSize() {
+        String batchSizeText = System.getenv("BATCH_SIZE");
+        if (batchSizeText != null) {
+            try {
+                return Integer.parseInt(batchSizeText);
+            } catch (NumberFormatException e) {
+                // Ignore and use default
+            }
+        }
+        return 250;
+    }
+
     @Override
     public Object handleRequest(final SQSEvent input, final Context context) {
         input.getRecords().forEach(record -> {
@@ -43,7 +59,8 @@ public class App implements RequestHandler<SQSEvent, Object> {
                     .source(source)
                     .sqsClient(sqsClient)
                     .logger(context.getLogger())
-                    .validateWordsQueueUrl(System.getenv("VALIDATE_WORDS_QUEUE_URL"))
+                    .validateWordsQueueUrl(getValidateWordsQueueUrl())
+                    .batchSize(getBatchSize())
                     .build();
                 updater.update();
             } 
