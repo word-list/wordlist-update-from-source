@@ -46,7 +46,7 @@ jobs:
         id: update-lambda
         run: |
           aws lambda update-function-code \
-            --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
+            --function-name ${{ vars.UPDATE_SOURCE_LAMBDA_NAME }} \
             --s3-bucket ${{ vars.S3_BUCKET_NAME }} \
             --s3-key $(basename "$JAR_FILE") \
             --publish
