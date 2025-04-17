@@ -34,6 +34,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
+      - name: Manual approval (production only)
+        if: ${{ !github.event.release.prerelease }}
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: jonathan-gaul
+          minimum-approvals: 1
+          issue-title: "Production deployment approval required"
+          issue-body: "Please approve this production deployment."
+
       - name: Upload jar to S3
         id: upload
         run: |
