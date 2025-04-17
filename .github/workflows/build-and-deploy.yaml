@@ -35,6 +35,21 @@ jobs:
           aws-region: eu-west-2
 
       - name: Upload jar to S3
+        id: upload
         run: |
           JAR_FILE=$(find target -name "*.jar" | head -n 1)
           aws s3 cp "$JAR_FILE" s3://${{ vars.S3_BUCKET_NAME }}/
+        outputs:
+          jar_file: ${{ steps.upload.outputs.JAR_FILE }}
+
+      - name: Update lambda
+        id: update-lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
+            --s3-bucket ${{ vars.S3_BUCKET_NAME }} \
+            --s3-key $(basename "$JAR_FILE") \
+            --publish
+        env:
+          AWS_REGION: eu-west-2
+          JAR_FILE: ${{ steps.upload.outputs.jar_file }}
