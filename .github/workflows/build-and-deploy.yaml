@@ -39,8 +39,7 @@ jobs:
         run: |
           JAR_FILE=$(find target -name "*.jar" | head -n 1)
           aws s3 cp "$JAR_FILE" s3://${{ vars.S3_BUCKET_NAME }}/
-        outputs:
-          jar_file: ${{ steps.upload.outputs.JAR_FILE }}
+          echo "jar_file=$JAR_FILE" >> "$GITHUB_OUTPUT"        
 
       - name: Update lambda
         id: update-lambda
