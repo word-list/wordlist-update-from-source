@@ -8,6 +8,13 @@ import lombok.Setter;
 @Setter
 @Getter
 public class ValidateWordsMessage {
-    private String[] words;
-    private boolean forceUpdate;
+    private Word[] words;    
+
+    @Builder
+    @Setter
+    @Getter
+    public static class Word {
+        private String name;
+        private boolean forceUpdate;
+    }
 }

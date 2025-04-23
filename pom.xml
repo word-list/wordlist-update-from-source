@@ -49,7 +49,7 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>dynamodb-enhanced</artifactId>            
-        </dependency>        
+        </dependency>
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

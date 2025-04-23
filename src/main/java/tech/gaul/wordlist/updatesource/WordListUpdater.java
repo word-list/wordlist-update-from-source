@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.Builder;
@@ -29,7 +30,24 @@ public class WordListUpdater {
     private final LambdaLogger logger;
     private final SqsClient sqsClient;
     private final String validateWordsQueueUrl;
-    private final int batchSize;    
+    private final int batchSize;
+    private final boolean forceUpdate;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private void sendBatch(List<String> words) throws JsonProcessingException {
+        // Send the batch to SQS
+        ObjectMapper objectMapper = new ObjectMapper();
+        ValidateWordsMessage message = ValidateWordsMessage.builder()
+                .words(words.stream().map(w -> ValidateWordsMessage.Word.builder()
+                        .name(w)
+                        .forceUpdate(forceUpdate)
+                        .build()).toArray(ValidateWordsMessage.Word[]::new))
+                .build();
+        String messageBody = objectMapper.writeValueAsString(message);
+        sqsClient.sendMessage(m -> m.queueUrl(validateWordsQueueUrl).messageBody(messageBody));
+        words.clear();
+    }
 
     public void update() throws IOException, InterruptedException {
         logger.log("Retrieving word list from source: " + source.getUrl());
@@ -52,15 +70,7 @@ public class WordListUpdater {
             if (!line.isEmpty()) {
                 words.add(line);
                 if (words.size() >= batchSize) {
-                    // Send the batch to SQS
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    ValidateWordsMessage message = ValidateWordsMessage.builder()
-                            .words(words.toArray(new String[0]))
-                            .forceUpdate(false)
-                            .build();
-                    String messageBody = objectMapper.writeValueAsString(message);
-                    sqsClient.sendMessage(m -> m.queueUrl(validateWordsQueueUrl).messageBody(messageBody));
-                    words.clear();
+                    sendBatch(words);
                 }
             }
 
@@ -71,5 +81,9 @@ public class WordListUpdater {
         }
 
         reader.close();
+
+        if (words.size() > 0) {
+            sendBatch(words);
+        }
     }
 }

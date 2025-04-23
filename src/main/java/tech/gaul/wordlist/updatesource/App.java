@@ -70,8 +70,6 @@ public class App implements RequestHandler<SQSEvent, Object> {
 
     @Override
     public Object handleRequest(final SQSEvent input, final Context context) {
-
-
         input.getRecords().forEach(record -> {
             String messageBody = record.getBody();
 
