@@ -11,10 +11,10 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: java21
-      Handler: tech.gaul.wordlist.updatesource.App::handleRequest
+      Handler: tech.gaul.wordlist.updatefromsource.App::handleRequest
       Timeout: 60
       MemorySize: 512
-      CodeUri: ./target/updatesource.jar
+      CodeUri: ./target/updatefromsource.jar
       Environment: 
         Variables: 
           VALIDATE_WORDS_QUEUE_URL: !Ref ValidateWordsQueueUrl

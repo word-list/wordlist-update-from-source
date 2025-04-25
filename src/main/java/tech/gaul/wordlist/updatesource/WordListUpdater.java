@@ -1,4 +1,4 @@
-package tech.gaul.wordlist.updatesource;
+package tech.gaul.wordlist.updatefromsource;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,8 +19,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import tech.gaul.wordlist.updatesource.models.ValidateWordsMessage;
-import tech.gaul.wordlist.updatesource.models.WordListSource;
+import tech.gaul.wordlist.updatefromsource.models.ValidateWordsMessage;
+import tech.gaul.wordlist.updatefromsource.models.WordListSource;
 
 @Builder
 @Getter

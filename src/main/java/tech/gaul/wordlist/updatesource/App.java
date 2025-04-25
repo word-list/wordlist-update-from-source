@@ -1,4 +1,4 @@
-package tech.gaul.wordlist.updatesource;
+package tech.gaul.wordlist.updatefromsource;
 
 import java.util.Map;
 
@@ -15,8 +15,8 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import tech.gaul.wordlist.updatesource.models.UpdateSourceMessage;
-import tech.gaul.wordlist.updatesource.models.WordListSource;
+import tech.gaul.wordlist.updatefromsource.models.UpdateFromSourceMessage;
+import tech.gaul.wordlist.updatefromsource.models.WordListSource;
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -75,7 +75,7 @@ public class App implements RequestHandler<SQSEvent, Object> {
 
             ObjectMapper objectMapper = new ObjectMapper();
             try {
-                UpdateSourceMessage sourceMessage = objectMapper.readValue(messageBody, UpdateSourceMessage.class);
+                UpdateFromSourceMessage sourceMessage = objectMapper.readValue(messageBody, UpdateFromSourceMessage.class);
 
                 WordListSource source = wordListSourceTable.getItem(Key.builder().partitionValue(sourceMessage.getName()).build());
 

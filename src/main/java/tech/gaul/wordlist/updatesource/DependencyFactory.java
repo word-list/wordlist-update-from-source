@@ -1,5 +1,5 @@
 
-package tech.gaul.wordlist.updatesource;
+package tech.gaul.wordlist.updatefromsource;
 
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.core.SdkSystemSetting;

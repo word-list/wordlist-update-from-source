@@ -1,4 +1,4 @@
-package tech.gaul.wordlist.updatesource.models;
+package tech.gaul.wordlist.updatefromsource.models;
 
 import lombok.Getter;
 import lombok.Setter;

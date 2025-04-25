@@ -1,4 +1,4 @@
-package tech.gaul.wordlist.updatesource;
+package tech.gaul.wordlist.updatefromsource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
