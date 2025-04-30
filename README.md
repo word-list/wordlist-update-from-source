@@ -1,10 +1,19 @@
-# App
+# update-from-source
 
 This project contains an AWS Lambda maven application with [AWS Java SDK 2.x](https://github.com/aws/aws-sdk-java-v2) dependencies.
 
 ## Purpose
 
-Retrieve words from a source (e.g. a word list on a website) and queue them via SQS for validation.
+Retrieve words from a source (e.g. a word list on a website) and queue them via SQS for querying.
+
+## Message Format
+
+```json
+{
+    "source": "<name of source>",
+    "force": true, /* true to force update all words, false to only update words that don't already exist */
+}
+```
 
 ## Prerequisites
 - Java 1.8+

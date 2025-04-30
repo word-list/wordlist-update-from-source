@@ -10,6 +10,8 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -19,7 +21,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import tech.gaul.wordlist.updatefromsource.models.ValidateWordsMessage;
+import software.amazon.awssdk.services.sqs.model.BatchResultErrorEntry;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchResponse;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchResultEntry;
+import tech.gaul.wordlist.updatefromsource.models.QueryWordMessage;
 import tech.gaul.wordlist.updatefromsource.models.WordListSource;
 
 @Builder
@@ -38,14 +44,43 @@ public class WordListUpdater {
     private void sendBatch(List<String> words) throws JsonProcessingException {
         // Send the batch to SQS
         ObjectMapper objectMapper = new ObjectMapper();
-        ValidateWordsMessage message = ValidateWordsMessage.builder()
-                .words(words.stream().map(w -> ValidateWordsMessage.Word.builder()
-                        .name(w)
-                        .forceUpdate(forceUpdate)
-                        .build()).toArray(ValidateWordsMessage.Word[]::new))
-                .build();
-        String messageBody = objectMapper.writeValueAsString(message);
-        sqsClient.sendMessage(m -> m.queueUrl(validateWordsQueueUrl).messageBody(messageBody));
+        List<QueryWordMessage> messages = words.stream().map(w -> QueryWordMessage.builder()
+                .word(w)
+                .force(forceUpdate)
+                .build())
+                .collect(Collectors.toList());
+
+        Map<String, SendMessageBatchRequestEntry> entries = messages.stream()
+                .map(msg -> {
+                    try {
+                        return SendMessageBatchRequestEntry.builder()
+                                .id(msg.getWord())
+                                .messageBody(objectMapper.writeValueAsString(msg))
+                                .build();
+                    } catch (JsonProcessingException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toMap(req -> req.id(), req -> req));
+
+        // Send the items to SQS, 10 at a time (current limit for batch send)
+        int batchSize = 10;
+        while (!entries.isEmpty()) {
+            List<SendMessageBatchRequestEntry> batch = entries.values()
+                    .stream()
+                    .limit(batchSize)
+                    .collect(Collectors.toList());
+
+            SendMessageBatchResponse response = sqsClient.sendMessageBatch(m -> m
+                    .queueUrl(validateWordsQueueUrl)
+                    .entries(batch));
+
+            // Remove successful entries from the map
+            for (SendMessageBatchResultEntry resultEntry : response.successful()) {                
+                entries.remove(resultEntry.id());
+            }
+        }
+
         words.clear();
     }
 
