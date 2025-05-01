@@ -81,7 +81,7 @@ public class App implements RequestHandler<SQSEvent, Object> {
                     .source(source)
                     .sqsClient(sqsClient)
                     .logger(context.getLogger())
-                    .validateWordsQueueUrl(getQueryWordQueueUrl())
+                    .queryWordQueueUrl(getQueryWordQueueUrl())
                     .batchSize(getBatchSize())
                     .build();
                 updater.update();
