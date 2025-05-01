@@ -9,7 +9,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import tech.gaul.wordlist.updatefromsource.models.UpdateFromSourceMessage;
-import tech.gaul.wordlist.updatefromsource.models.WordListSource;
+import tech.gaul.wordlist.updatefromsource.models.Source;
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -28,19 +28,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class App implements RequestHandler<SQSEvent, Object> {
     private final SqsClient sqsClient;
     private final DynamoDbEnhancedClient dynamoDbClient;    
-    private final DynamoDbTable<WordListSource> wordListSourceTable;
+    private final DynamoDbTable<Source> sourcesTable;
 
     public App() {        
         sqsClient = DependencyFactory.sqsClient();
         dynamoDbClient = DependencyFactory.dynamoDbClient();
-        wordListSourceTable = dynamoDbClient.table(
-            getWordListSourceTableName(), 
-            TableSchema.fromBean(WordListSource.class)
+        sourcesTable = dynamoDbClient.table(
+            getSourcesTableName(), 
+            TableSchema.fromBean(Source.class)
         );
     }
 
-    protected String getValidateWordsQueueUrl() {
-        return System.getenv("VALIDATE_WORDS_QUEUE_URL");
+    protected String getQueryWordQueueUrl() {
+        return System.getenv("QUERY_WORD_QUEUE_URL");
     }
 
     protected int getBatchSize() {
@@ -57,8 +57,8 @@ public class App implements RequestHandler<SQSEvent, Object> {
         return 250;
     }
 
-    protected String getWordListSourceTableName() {
-        return "WORD_LIST_SOURCE_TABLE_NAME";
+    protected String getSourcesTableName() {
+        return "SOURCES_TABLE_NAME";
     }
 
     @Override
@@ -70,7 +70,7 @@ public class App implements RequestHandler<SQSEvent, Object> {
             try {
                 UpdateFromSourceMessage sourceMessage = objectMapper.readValue(messageBody, UpdateFromSourceMessage.class);
 
-                WordListSource source = wordListSourceTable.getItem(Key.builder().partitionValue(sourceMessage.getName()).build());
+                Source source = sourcesTable.getItem(Key.builder().partitionValue(sourceMessage.getName()).build());
 
                 if (source == null) {
                     context.getLogger().log("Source not found: " + sourceMessage.getName());
@@ -81,7 +81,7 @@ public class App implements RequestHandler<SQSEvent, Object> {
                     .source(source)
                     .sqsClient(sqsClient)
                     .logger(context.getLogger())
-                    .validateWordsQueueUrl(getValidateWordsQueueUrl())
+                    .validateWordsQueueUrl(getQueryWordQueueUrl())
                     .batchSize(getBatchSize())
                     .build();
                 updater.update();

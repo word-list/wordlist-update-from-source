@@ -21,21 +21,20 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.BatchResultErrorEntry;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchResponse;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchResultEntry;
 import tech.gaul.wordlist.updatefromsource.models.QueryWordMessage;
-import tech.gaul.wordlist.updatefromsource.models.WordListSource;
+import tech.gaul.wordlist.updatefromsource.models.Source;
 
 @Builder
 @Getter
 @Setter
 public class WordListUpdater {
-    private final WordListSource source;
+    private final Source source;
     private final LambdaLogger logger;
     private final SqsClient sqsClient;
-    private final String validateWordsQueueUrl;
+    private final String queryWordQueueUrl;
     private final int batchSize;
     private final boolean forceUpdate;
 
@@ -72,13 +71,15 @@ public class WordListUpdater {
                     .collect(Collectors.toList());
 
             SendMessageBatchResponse response = sqsClient.sendMessageBatch(m -> m
-                    .queueUrl(validateWordsQueueUrl)
+                    .queueUrl(queryWordQueueUrl)
                     .entries(batch));
 
             // Remove successful entries from the map
             for (SendMessageBatchResultEntry resultEntry : response.successful()) {                
                 entries.remove(resultEntry.id());
             }
+
+            // TODO: Track unsuccessful entries and fail after a certain number of retries
         }
 
         words.clear();

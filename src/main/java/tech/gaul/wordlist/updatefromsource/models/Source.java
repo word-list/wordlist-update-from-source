@@ -8,7 +8,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbParti
 @DynamoDbBean
 @Getter
 @Setter
-public class WordListSource {
+public class Source {
     private String name;
     private String url;
 

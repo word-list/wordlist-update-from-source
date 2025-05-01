@@ -16,9 +16,6 @@ public class DependencyFactory {
 
     private DependencyFactory() {}
 
-    /**
-     * @return an instance of SqsAsyncClient
-     */
     public static SqsClient sqsClient() {
         return SqsClient.builder()
                        .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
