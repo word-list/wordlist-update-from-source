@@ -9,7 +9,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import tech.gaul.wordlist.updatefromsource.models.UpdateFromSourceMessage;
-import tech.gaul.wordlist.updatefromsource.models.Source;
+import tech.gaul.wordlist.updatefromsource.models.SourceEntity;
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -27,20 +27,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class App implements RequestHandler<SQSEvent, Object> {
     private final SqsClient sqsClient;
-    private final DynamoDbEnhancedClient dynamoDbClient;    
-    private final DynamoDbTable<Source> sourcesTable;
+    private final DynamoDbEnhancedClient dynamoDbClient;
+    private final DynamoDbTable<SourceEntity> sourcesTable;
 
-    public App() {        
+    public App() {
         sqsClient = DependencyFactory.sqsClient();
         dynamoDbClient = DependencyFactory.dynamoDbClient();
-        sourcesTable = dynamoDbClient.table(
-            getSourcesTableName(), 
-            TableSchema.fromBean(Source.class)
-        );
-    }
-
-    protected String getQueryWordQueueUrl() {
-        return System.getenv("QUERY_WORD_QUEUE_URL");
+        sourcesTable = dynamoDbClient.table(System.getenv("SOURCES_TABLE_NAME"),
+                TableSchema.fromBean(SourceEntity.class));
     }
 
     protected int getBatchSize() {
@@ -57,10 +51,6 @@ public class App implements RequestHandler<SQSEvent, Object> {
         return 250;
     }
 
-    protected String getSourcesTableName() {
-        return "SOURCES_TABLE_NAME";
-    }
-
     @Override
     public Object handleRequest(final SQSEvent input, final Context context) {
         input.getRecords().forEach(record -> {
@@ -68,33 +58,32 @@ public class App implements RequestHandler<SQSEvent, Object> {
 
             ObjectMapper objectMapper = new ObjectMapper();
             try {
-                UpdateFromSourceMessage sourceMessage = objectMapper.readValue(messageBody, UpdateFromSourceMessage.class);
+                UpdateFromSourceMessage sourceMessage = objectMapper.readValue(messageBody,
+                        UpdateFromSourceMessage.class);
 
-                Source source = sourcesTable.getItem(Key.builder().partitionValue(sourceMessage.getName()).build());
+                SourceEntity source = sourcesTable.getItem(Key.builder().partitionValue(sourceMessage.getId()).build());
 
                 if (source == null) {
-                    context.getLogger().log("Source not found: " + sourceMessage.getName());
+                    context.getLogger().log("Source not found: " + sourceMessage.getId());
                     return;
                 }
 
                 WordListUpdater updater = WordListUpdater.builder()
-                    .source(source)
-                    .sqsClient(sqsClient)
-                    .logger(context.getLogger())
-                    .queryWordQueueUrl(getQueryWordQueueUrl())
-                    .batchSize(getBatchSize())
-                    .build();
+                        .source(source)
+                        .sqsClient(sqsClient)
+                        .logger(context.getLogger())
+                        .queryWordQueueUrl(System.getenv("QUERY_WORD_QUEUE_URL"))
+                        .batchSize(getBatchSize())
+                        .build();
+                        
                 updater.update();
-            } 
-            catch (JsonMappingException e) {
+            } catch (JsonMappingException e) {
                 context.getLogger().log("Invalid message JSON: " + e.getMessage());
                 e.printStackTrace();
-            } 
-            catch (JsonProcessingException e) {
+            } catch (JsonProcessingException e) {
                 context.getLogger().log("Invalid message JSON: " + e.getMessage());
                 e.printStackTrace();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 context.getLogger().log("Error processing message: " + e.getMessage());
                 e.printStackTrace();
             }

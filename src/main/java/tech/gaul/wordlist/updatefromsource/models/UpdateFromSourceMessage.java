@@ -8,9 +8,9 @@ import lombok.Setter;
 @Setter
 @Getter
 public class UpdateFromSourceMessage {    
-    /// The name of the wordlist to update
-    private String name;
+    /// The id of the wordlist to update from.
+    private String id;
 
-    /// true if the words should be updated even if they already exist
+    /// true if the words should be updated even if they already exist.
     private boolean force;
 }

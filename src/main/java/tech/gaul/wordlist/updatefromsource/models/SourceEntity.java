@@ -8,12 +8,13 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbParti
 @DynamoDbBean
 @Getter
 @Setter
-public class Source {
+public class SourceEntity {
+    private String id;
     private String name;
     private String url;
 
     @DynamoDbPartitionKey
-    public String getName() {
-        return name;
+    public String getId() {
+        return id;
     }
 }

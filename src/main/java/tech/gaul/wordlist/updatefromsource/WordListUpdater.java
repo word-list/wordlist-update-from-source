@@ -11,6 +11,8 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
@@ -25,13 +27,13 @@ import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchResponse;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchResultEntry;
 import tech.gaul.wordlist.updatefromsource.models.QueryWordMessage;
-import tech.gaul.wordlist.updatefromsource.models.Source;
+import tech.gaul.wordlist.updatefromsource.models.SourceEntity;
 
 @Builder
 @Getter
 @Setter
 public class WordListUpdater {
-    private final Source source;
+    private final SourceEntity source;
     private final LambdaLogger logger;
     private final SqsClient sqsClient;
     private final String queryWordQueueUrl;
@@ -39,6 +41,9 @@ public class WordListUpdater {
     private final boolean forceUpdate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Optional<SendMessageBatchRequestEntry> emptySendMessageBatchRequestEntry = Optional.empty();
+
+    private final int BATCH_SIZE = 10;
 
     private void sendBatch(List<String> words) throws JsonProcessingException {
         // Send the batch to SQS
@@ -52,22 +57,28 @@ public class WordListUpdater {
         Map<String, SendMessageBatchRequestEntry> entries = messages.stream()
                 .map(msg -> {
                     try {
-                        return SendMessageBatchRequestEntry.builder()
+                        return Optional.of(SendMessageBatchRequestEntry.builder()
                                 .id(msg.getWord())
                                 .messageBody(objectMapper.writeValueAsString(msg))
-                                .build();
+                                .build());
                     } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
+                        logger.log("Failed to write message for word " + msg.getWord() + ": " + e.getMessage());
+                        return emptySendMessageBatchRequestEntry;
                     }
                 })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toMap(req -> req.id(), req -> req));
 
         // Send the items to SQS, 10 at a time (current limit for batch send)
-        int batchSize = 10;
+        int baseDelay = 500;
+        Random random = new Random();
+        int batchNumber = 1;
+        int expectedBatchCount = entries.size() / BATCH_SIZE;
         while (!entries.isEmpty()) {
             List<SendMessageBatchRequestEntry> batch = entries.values()
                     .stream()
-                    .limit(batchSize)
+                    .limit(BATCH_SIZE)
                     .collect(Collectors.toList());
 
             SendMessageBatchResponse response = sqsClient.sendMessageBatch(m -> m
@@ -75,11 +86,32 @@ public class WordListUpdater {
                     .entries(batch));
 
             // Remove successful entries from the map
-            for (SendMessageBatchResultEntry resultEntry : response.successful()) {                
+            for (SendMessageBatchResultEntry resultEntry : response.successful()) {
                 entries.remove(resultEntry.id());
             }
+            
+            if (!entries.isEmpty()) {
+                // Back-off timer
+                int backOffTime = baseDelay * (int) Math.pow(2, batchNumber - 1);
+                int jitter = random.nextInt(250); // ms
+                backOffTime += jitter;
 
-            // TODO: Track unsuccessful entries and fail after a certain number of retries
+                try {
+                    Thread.sleep(backOffTime);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    System.out.println("Thread interrupted during back-off timer. Exiting.");
+                    break;
+                }
+
+                batchNumber++;
+                if (batchNumber > expectedBatchCount) {
+                    if (batchNumber % 100 == 0) {
+                        logger.log(String.format("Batch number %d is greater than the expected %d total batches",
+                                batchNumber, expectedBatchCount));
+                    }
+                }
+            }
         }
 
         words.clear();
