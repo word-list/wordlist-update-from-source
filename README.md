@@ -10,7 +10,7 @@ Retrieve words from a source (e.g. a word list on a website) and queue them via 
 
 ```json
 {
-    "source": "<name of source>",
+    "source": "<id of source>",
     "force": true, /* true to force update all words, false to only update words that don't already exist */
 }
 ```
